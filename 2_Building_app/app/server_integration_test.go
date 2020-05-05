@@ -9,18 +9,27 @@ import (
 )
 
 func TestRecordingWinsAndRetrievingThem(t *testing.T) {
-	store := NewInMemoryPlayerStore()
+	database, cleanDatabase := createTempFile(t, `[]`)
+	defer cleanDatabase()
+
+	store, err := NewFileSystemPlayerStore(database)
+	assertNoError(t, err)
+
 	server := NewPlayerServer(store)
 	player := "Pepper"
 
 	wins := 100
+	runConcurrently(t, wins, func() {
+		server.ServeHTTP(httptest.NewRecorder(), newPostWinRequest(player))
+	})
 
-	wg := &sync.WaitGroup{}
-	wg.Add(wins)
-	for i := 0; i < wins; i++ {
-		go serveHttp(wg, server, player)
-	}
-	wg.Wait()
+	t.Run("works with an empty file", func(t *testing.T) {
+		database, cleanDatabase := createTempFile(t, "")
+		defer cleanDatabase()
+
+		_, err := NewFileSystemPlayerStore(database)
+		assertNoError(t, err)
+	})
 
 	t.Run("get score", func(t *testing.T) {
 		response := httptest.NewRecorder()
@@ -30,20 +39,31 @@ func TestRecordingWinsAndRetrievingThem(t *testing.T) {
 		assertResponseBody(t, response.Body.String(), fmt.Sprintf("%d", wins))
 	})
 
-	t.Run("get league", func(t *testing.T) {
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, newLeagueRequest())
-		assertStatus(t, response.Code, http.StatusOK)
+	t.Run("get league concurrently", func(t *testing.T) {
+		runConcurrently(t, wins, func() {
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, newLeagueRequest())
 
-		got := getLeagueFromResponse(t, response.Body)
-		want := []Player{
-			{player, wins},
-		}
-		assertLeague(t, got, want)
+			assertStatus(t, response.Code, http.StatusOK)
+
+			got := getLeagueFromResponse(t, response.Body)
+			want := []Player{
+				{player, wins},
+			}
+			assertLeague(t, got, want)
+		})
 	})
 }
 
-func serveHttp(wg *sync.WaitGroup, server *PlayerServer, player string) {
-	server.ServeHTTP(httptest.NewRecorder(), newPostWinRequest(player))
-	wg.Done()
+func runConcurrently(t *testing.T, count int, f func()) {
+	t.Helper()
+	wg := &sync.WaitGroup{}
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		go func() {
+			defer wg.Done()
+			f()
+		}()
+	}
+	wg.Wait()
 }
