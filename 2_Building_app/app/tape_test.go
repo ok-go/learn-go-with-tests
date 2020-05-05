@@ -1,4 +1,4 @@
-package main
+package poker
 
 import (
 	"io/ioutil"
@@ -6,13 +6,15 @@ import (
 )
 
 func TestTape_Write(t *testing.T) {
-	file, clean := createTempFile(t, "12345")
+	file, clean := CreateTempFile(t, "12345")
 	defer clean()
 
 	tape := &tape{file}
-	tape.Write([]byte("abc"))
+	_, err := tape.Write([]byte("abc"))
+	AssertNoError(t, err)
 
-	file.Seek(0, 0)
+	_, err = file.Seek(0, 0)
+	AssertNoError(t, err)
 	newFileContents, _ := ioutil.ReadAll(file)
 
 	got := string(newFileContents)
