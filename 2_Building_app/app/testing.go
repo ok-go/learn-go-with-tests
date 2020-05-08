@@ -2,12 +2,14 @@ package poker
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type StubPlayerStore struct {
@@ -29,6 +31,23 @@ func (s *StubPlayerStore) GetLeague() League {
 	return s.league
 }
 
+type ScheduledAlert struct {
+	At     time.Duration
+	Amount int
+}
+
+func (s ScheduledAlert) String() string {
+	return fmt.Sprintf("%d chips At %v", s.Amount, s.At)
+}
+
+type SpyBlindAlerter struct {
+	Alerts []ScheduledAlert
+}
+
+func (s *SpyBlindAlerter) ScheduleAlertAt(duration time.Duration, amount int) {
+	s.Alerts = append(s.Alerts, ScheduledAlert{At: duration, Amount: amount})
+}
+
 func AssertPlayerWin(t *testing.T, store *StubPlayerStore, winner string) {
 	t.Helper()
 
@@ -48,14 +67,14 @@ func GetLeagueFromResponse(t *testing.T, body io.Reader) (league []Player) {
 	return
 }
 
-func AssertResponseBody(t *testing.T, got, want string) {
+func AssertStringEquals(t *testing.T, got, want string) {
 	t.Helper()
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
-func AssertStatus(t *testing.T, got, want int) {
+func AssertIntEquals(t *testing.T, got, want int) {
 	t.Helper()
 	if got != want {
 		t.Errorf("got status %d, want %d", got, want)

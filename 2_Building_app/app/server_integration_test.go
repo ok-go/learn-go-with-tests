@@ -34,9 +34,9 @@ func TestRecordingWinsAndRetrievingThem(t *testing.T) {
 	t.Run("get score", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, newGetScoreRequest(player))
-		AssertStatus(t, response.Code, http.StatusOK)
+		AssertIntEquals(t, response.Code, http.StatusOK)
 
-		AssertResponseBody(t, response.Body.String(), fmt.Sprintf("%d", wins))
+		AssertStringEquals(t, response.Body.String(), fmt.Sprintf("%d", wins))
 	})
 
 	t.Run("get league concurrently", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestRecordingWinsAndRetrievingThem(t *testing.T) {
 			response := httptest.NewRecorder()
 			server.ServeHTTP(response, newLeagueRequest())
 
-			AssertStatus(t, response.Code, http.StatusOK)
+			AssertIntEquals(t, response.Code, http.StatusOK)
 
 			got := GetLeagueFromResponse(t, response.Body)
 			want := []Player{
