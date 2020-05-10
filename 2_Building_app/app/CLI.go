@@ -37,7 +37,7 @@ func (cli *CLI) PlayPoker() {
 		fmt.Fprint(cli.out, err)
 		return
 	}
-	cli.game.Start(numberOfPlayers)
+	cli.game.Start(numberOfPlayers, cli.out)
 
 	winner, err := cli.readWinner()
 	if err != nil {

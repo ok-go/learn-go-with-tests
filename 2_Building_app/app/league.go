@@ -10,7 +10,7 @@ type League []Player
 
 func NewLeague(r io.Reader) (league League, err error) {
 	if err = json.NewDecoder(r).Decode(&league); err != nil {
-		err = fmt.Errorf("problem parsing league, %v", err)
+		err = fmt.Errorf("problem parsing League, %v", err)
 	}
 	return
 }

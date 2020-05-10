@@ -13,22 +13,22 @@ import (
 )
 
 type StubPlayerStore struct {
-	scores   map[string]int
-	winCalls []string
-	league   League
+	Scores   map[string]int
+	WinCalls []string
+	League   League
 }
 
 func (s *StubPlayerStore) GetPlayerScore(name string) int {
-	score := s.scores[name]
+	score := s.Scores[name]
 	return score
 }
 
 func (s *StubPlayerStore) RecordWin(name string) {
-	s.winCalls = append(s.winCalls, name)
+	s.WinCalls = append(s.WinCalls, name)
 }
 
 func (s *StubPlayerStore) GetLeague() League {
-	return s.league
+	return s.League
 }
 
 type ScheduledAlert struct {
@@ -44,18 +44,38 @@ type SpyBlindAlerter struct {
 	Alerts []ScheduledAlert
 }
 
-func (s *SpyBlindAlerter) ScheduleAlertAt(duration time.Duration, amount int) {
+func (s *SpyBlindAlerter) ScheduleAlertAt(duration time.Duration, amount int, to io.Writer) {
 	s.Alerts = append(s.Alerts, ScheduledAlert{At: duration, Amount: amount})
+}
+
+type GameSpy struct {
+	StartedWith int
+	StartCalled bool
+	BlindAlert  []byte
+
+	FinishedWith string
+	FinishCalled bool
+}
+
+func (g *GameSpy) Start(numberOfPlayers int, out io.Writer) {
+	g.StartedWith = numberOfPlayers
+	g.StartCalled = true
+	out.Write(g.BlindAlert)
+}
+
+func (g *GameSpy) Finish(winner string) {
+	g.FinishedWith = winner
+	g.FinishCalled = true
 }
 
 func AssertPlayerWin(t *testing.T, store *StubPlayerStore, winner string) {
 	t.Helper()
 
-	if len(store.winCalls) != 1 {
-		t.Errorf("got %d calls to RecordWin want %d", len(store.winCalls), 1)
+	if len(store.WinCalls) != 1 {
+		t.Errorf("got %d calls to RecordWin want %d", len(store.WinCalls), 1)
 	}
-	if store.winCalls[0] != winner {
-		t.Errorf("did not playerStore correct winner got %q want %q", store.winCalls[0], winner)
+	if len(store.WinCalls) > 0 && store.WinCalls[0] != winner {
+		t.Errorf("did not playerStore correct winner got %q want %q", store.WinCalls[0], winner)
 	}
 }
 
@@ -74,10 +94,10 @@ func AssertStringEquals(t *testing.T, got, want string) {
 	}
 }
 
-func AssertIntEquals(t *testing.T, got, want int) {
+func AssertStatus(t *testing.T, response *httptest.ResponseRecorder, want int) {
 	t.Helper()
-	if got != want {
-		t.Errorf("got status %d, want %d", got, want)
+	if response.Code != want {
+		t.Errorf("got status %d, want %d", response.Code, want)
 	}
 }
 
@@ -109,6 +129,37 @@ func AssertScoreEquals(t *testing.T, got, want int) {
 	}
 }
 
+func AssertGameStartedWith(t *testing.T, game *GameSpy, want int) {
+	t.Helper()
+	if game.StartedWith != want {
+		t.Errorf("got %d, want Start called with %d", game.StartedWith, want)
+	}
+}
+
+func AssertFinishCalledWith(t *testing.T, game *GameSpy, winner string) {
+	t.Helper()
+
+	passed := retryUntil(500*time.Millisecond, func() bool {
+		return game.FinishedWith == winner
+	})
+
+	if !passed {
+		t.Errorf("got %q, winner Finish called with %q", game.FinishedWith, winner)
+	}
+}
+
+func AssertGameNotStarted(t *testing.T, game *GameSpy) {
+	if game.StartCalled {
+		t.Errorf("game should not have started")
+	}
+}
+
+func AssertGameNotFinished(t *testing.T, game *GameSpy) {
+	if !game.FinishCalled {
+		t.Errorf("game should not have finished")
+	}
+}
+
 func CreateTempFile(t *testing.T, initialData string) (*os.File, func()) {
 	t.Helper()
 
@@ -131,4 +182,14 @@ func CreateTempFile(t *testing.T, initialData string) (*os.File, func()) {
 	}
 
 	return tmpFile, removeFile
+}
+
+func retryUntil(d time.Duration, f func() bool) bool {
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		if f() {
+			return true
+		}
+	}
+	return false
 }
