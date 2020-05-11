@@ -11,7 +11,7 @@ import (
 func FileSystemPlayerStoreFromFile(path string) (*FileSystemPlayerStore, func(), error) {
 	db, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		return nil, nil, fmt.Errorf("problem opening %s, %v", path, err)
+		return nil, nil, fmt.Errorf("problem opening %s, %w", path, err)
 	}
 
 	closeFunc := func() {
@@ -20,7 +20,7 @@ func FileSystemPlayerStoreFromFile(path string) (*FileSystemPlayerStore, func(),
 
 	store, err := NewFileSystemPlayerStore(db)
 	if err != nil {
-		return nil, nil, fmt.Errorf("problem creating file system player store, %v", err)
+		return nil, nil, fmt.Errorf("problem creating file system player store, %w", err)
 	}
 
 	return store, closeFunc, nil
@@ -34,12 +34,12 @@ type FileSystemPlayerStore struct {
 
 func NewFileSystemPlayerStore(file *os.File) (*FileSystemPlayerStore, error) {
 	if err := initializePlayerDBFile(file); err != nil {
-		return nil, fmt.Errorf("problem init player db file, %v", err)
+		return nil, fmt.Errorf("problem init player db file, %w", err)
 	}
 
 	league, err := NewLeague(file)
 	if err != nil {
-		return nil, fmt.Errorf("problem loading player playerStore from file %s, %v", file.Name(), err)
+		return nil, fmt.Errorf("problem loading player playerStore from file %s, %w", file.Name(), err)
 	}
 
 	return &FileSystemPlayerStore{
@@ -95,20 +95,20 @@ func (s *FileSystemPlayerStore) RecordWin(name string) {
 
 func initializePlayerDBFile(file *os.File) error {
 	if _, err := file.Seek(0, 0); err != nil {
-		return fmt.Errorf("problem seek file %s, %v", file.Name(), err)
+		return fmt.Errorf("problem seek file %s, %w", file.Name(), err)
 	}
 
 	info, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("problem getting file info from file %s, %v", file.Name(), err)
+		return fmt.Errorf("problem getting file info from file %s, %w", file.Name(), err)
 	}
 
 	if info.Size() == 0 {
 		if _, err := file.Write([]byte("[]")); err != nil {
-			return fmt.Errorf("problem write to file %s, %v", file.Name(), err)
+			return fmt.Errorf("problem write to file %s, %w", file.Name(), err)
 		}
 		if _, err := file.Seek(0, 0); err != nil {
-			return fmt.Errorf("problem seek file %s, %v", file.Name(), err)
+			return fmt.Errorf("problem seek file %s, %w", file.Name(), err)
 		}
 	}
 
